@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 	private class OrbitManager extends Thread {
 		// this class originally had the docstring "this class does all the work"
 		// and yea that's about right. The orbiter manager needs to think about:
@@ -33,6 +34,7 @@
 		//double	endEffectorX;
 		//double	endEffectorY;
 		//double	endEffectorZ;
+		double[][] controlPoints;
 
 		// --- PURE MATH STUFF ---
 
@@ -131,6 +133,96 @@
 			return normalizedVector;
 		}
 
+		// Generate points on a b-spline
+		// This doesn't automatically clamp to the control points,
+		// but you can achieve that same effecting by copying the first and last control points 3 times.
+		public double[][] generatePointsOnBSpline(double subsampling, double[][] controlPoints) {
+			ArrayList<double[]> splineXYZ = new ArrayList<double[]>();
+			double[] t = new double[controlPoints.length * subsampling + 1];
+			for (int i = 0; i < t.length; i++) {
+				t[i] = lerp1d(0.0, controlPoints.length, i / t.length);
+			}
+			double[][] characteristic_matrix = {
+				{ 1.0/6, 4.0/6, 1.0/6, 0.0/6},
+				{-3.0/6, 0.0/6, 3.0/6, 0.0/6},
+				{ 3.0/6,-6.0/6, 3.0/6, 0.0/6},
+				{-1.0/6, 3.0/6,-3.0/6, 1.0/6}};
+			for (int i = 0; i < controlPoints.length; i++) {
+				if (i == 0 || i >= controlPoints.length - 2) {
+					continue;
+				}
+				for (int j = subsampling * i; j < subsampling * (i + 1); j++) {
+					double u = t[j] % 1;
+					double[] polynomialTerms = {1, u, u * u, u * u * u};
+					double[][] points = new double[4][1];
+					for (int k = i - 1; k < i + 3; k++) {
+						points = [controlPoints[k]];
+					}
+					double[][] curveMat = matmul(polynomialTerms, matmul(characteristic_matrix, points));
+					double[] curvePoint = new double[curveMat.length];
+					for (int k = 0; k < curvePoint.length; k++) {
+						curvePoint[k] = curveMat[k][0];
+					}
+					splineXYZ.add(curvePoint);
+				}
+			}
+			return splineXYZ.ToArray();
+		}
+
+		// Generate velocities on a b-spline, clamping to end control points
+		public double[][] generateVelocitiesOnBSpline(double subsampling, double[][] controlPoints) {
+			ArrayList<double[]> splineXYZ = new ArrayList<double[]>();
+			double[] t = new double[controlPoints.length * subsampling + 1];
+			for (int i = 0; i < t.length; i++) {
+				t[i] = lerp1d(0.0, controlPoints.length, i / t.length);
+			}
+			double[][] characteristic_matrix = {
+				{ 1.0/6, 4.0/6, 1.0/6, 0.0/6},
+				{-3.0/6, 0.0/6, 3.0/6, 0.0/6},
+				{ 3.0/6,-6.0/6, 3.0/6, 0.0/6},
+				{-1.0/6, 3.0/6,-3.0/6, 1.0/6}};
+			for (int i = 0; i < controlPoints.length; i++) {
+				if (i == 0 || i >= controlPoints.length - 2) {
+					continue;
+				}
+				for (int j = subsampling * i; j < subsampling * (i + 1); j++) {
+					double u = t[j] % 1;
+					double[] polynomialTerms = {0, 1, 2 * u, 3 * u * u};
+					double[][] points = new double[4][1];
+					for (int k = i - 1; k < i + 3; k++) {
+						points = [controlPoints[k]];
+					}
+					double[][] curveMat = matmul(polynomialTerms, matmul(characteristic_matrix, points));
+					double[] curvePoint = new double[curveMat.length];
+					for (int k = 0; k < curvePoint.length; k++) {
+						curvePoint[k] = curveMat[k][0];
+					}
+					splineXYZ.add(curvePoint);
+				}
+			}
+			return splineXYZ.ToArray();
+		}
+
+		// calculate wire velocity, where + means letting out wire and - means reeling in wire
+		public double[] generateWireVelocity(double[][] vt, double[][] pt, double[] towerPosition) {
+			double[] wireVelocities = new double[vt.length];
+			for (int i = 0; i < vt.length; i++) {
+				double[] endEffectorPosition = pt[i];
+				double[] endEffectorVelocity = vt[i];
+				double[] wireVector = vectorDifference(endEffectorPosition, towerPosition);
+				double[] wireDirection = normalizeVector();
+				double[] velocityAlongWire3d = vectorDot(vectorDot(endEffectorVelocity, wireDirection), wireDirection);
+				double speedAlongWire = vectorMagnitude(velocityAlongWire3d);
+				double directionAlongWire = 1;
+				if (vectorDot(velocityAlongWire3d, wireDirection) > 0) {
+					directionAlongWire = -1;
+				}
+				double velocityAlongWire1d = speedAlongWire * directionAlongWire;
+				wireVelocities[i] = velocityAlongWire1d;
+			}
+			return wireVelocities;
+		}
+
 		// --- END MATH STUFF ---
 
 		// --- ORBITER SPECIFIC STUFF ---
@@ -147,6 +239,7 @@
 			myMotor.backward();
 		}
 
+		// TODO: I think this may be unnecessary, I might only need goal speeds, not goal positions?
 		// get the goal position of the end effector for a given time
 		private double[] getEndEffectorGoalPosition(float timeNow){
 			// assume a constant time interval between control points
@@ -155,6 +248,7 @@
 			return null;
 		}
 		
+		// TODO: I think this may be unnecessary, I might only need goal speeds, not goal positions?
 		// get the length of the line, given the time
 		private double getLineLength(float timeNow) {
 			// Assuming that the line is approximately straight, (which, we are making that assumption),
@@ -190,6 +284,23 @@
 			// !! NEW !!
 			mountPoint = new double[] {20D, 20D, 20D};		// uhhhhh idk. This should be encoded somewhere somehow. Also, would studs be a more convenient unit?
 			endEffectorPositionPoint = new double[] {0D, 0D, 0D};
+			// remember to triplicate the first and last points. B-Splines don't necessarily pass through unique control points on their own.
+			controlPoints = new double[][] {
+				{0D, 0D, 0D},
+				{0D, 0D, 0D},
+				{0D, 0D, 0D},
+				{0D, 0D, 10D},
+				{0D, 0D, 10D},
+				{0D, 0D, 10D}
+			}
+			// Parse the control points into positions and velocities
+			int subsampling = 100;
+			double[][] splinePoints = generatePointsOnBSpline(subsampling, controlPoints);
+			double[][] splineVelocities = generateVelocitiesOnBSpline(subsampling, controlPoints);
+			// TODO: so I think there's two ways to do this:
+			// 1. calculate the spline for all towers, then normalize so that the fastest velocity between any two points is some cap
+			// 2. calculate the spline for all towers, then iteratively subsample until the max velocity is below some cap
+			// I think I prefer the speed normalization technique? Either way, we need to know the worst-case (fastest) speed for all the spools.
 		}
 		
 		// will do one cycle of starting and stopping, then exit
