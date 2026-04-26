@@ -137,7 +137,7 @@ public double[] generatePointsOnBSpline(double subsampling, double[][] controlPo
 }
 
 // Generate velocities on a b-spline, clamping to end control points
-public double[] generatePointsOnBSpline(double subsampling, double[][] controlPoints) {
+public double[] generateVelocitiesOnBSpline(double subsampling, double[][] controlPoints) {
     ArrayList<double[]> splineXYZ = new ArrayList<double[]>();
     double[] t = new double[controlPoints.length * subsampling + 1];
     for (int i = 0; i < t.length; i++) {
