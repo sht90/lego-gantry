@@ -440,7 +440,6 @@ public class OrbiterManagerTester extends Thread {
 				adjustedWireVelocities[i][j] = (int)(adjustmentMultiplier * allWireVelocities[i][j]);
 			}
 		}
-		System.out.println(String.format("splinePoints: %d x %d\nsplineVelocities: %d x %d", splinePoints.length, splinePoints[0].length, splineVelocities.length, splineVelocities[0].length));
 		System.out.println(String.format("%s", Arrays.deepToString(splinePoints).replace(", [", ",\n [")));
 		System.out.println(String.format("%s", Arrays.deepToString(splineVelocities).replace(", [", ",\n [")));
 		System.out.println(String.format("%.6f", nominalMaxWireVelocity));
