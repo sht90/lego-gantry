@@ -442,7 +442,6 @@ public class OrbiterManagerTester extends Thread {
 		}
 		System.out.println(String.format("%s", Arrays.deepToString(splinePoints).replace(", [", ",\n [")));
 		System.out.println(String.format("%s", Arrays.deepToString(splineVelocities).replace(", [", ",\n [")));
-		System.out.println(String.format("%.6f", nominalMaxWireVelocity));
 		System.out.println(String.format("%s", Arrays.deepToString(adjustedWireVelocities).replace(", [", ",\n [")));
 	}
 }
