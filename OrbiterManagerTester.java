@@ -425,7 +425,6 @@ public class OrbiterManagerTester extends Thread {
 			allWireVelocities[i] = generateWireVelocity(splineVelocities, splinePoints, allMountPoints[i]);
 		}
 		double maxAllowedMotorSpeed = 99.0;
-		double minAllowedMotorSpeed = 10.0;
 		double nominalMaxWireVelocity = 0.0;
 		for (int i = 0; i < allWireVelocities.length; i++) {
 			for (int j = 0; j < allWireVelocities[0].length; j++) {
@@ -435,14 +434,10 @@ public class OrbiterManagerTester extends Thread {
 			}
 		}
 		int[][] adjustedWireVelocities = new int[allWireVelocities.length][allWireVelocities[0].length];
+		double adjustmentMultiplier = maxAllowedMotorSpeed / nominalMaxWireVelocity;
 		for (int i = 0; i < allWireVelocities.length; i++) {
 			for (int j = 0; j < allWireVelocities[i].length; j++) {
-				if (allWireVelocities[i][j] == 0) {
-					adjustedWireVelocities[i][j] = 0;
-				}
-				else {
-					adjustedWireVelocities[i][j] = (int)((maxAllowedMotorSpeed - minAllowedMotorSpeed) / nominalMaxWireVelocity * allWireVelocities[i][j] + minAllowedMotorSpeed);
-				}
+				adjustedWireVelocities[i][j] = (int)(adjustmentMultiplier * allWireVelocities[i][j]);
 			}
 		}
 		System.out.println(String.format("splinePoints: %d x %d\nsplineVelocities: %d x %d", splinePoints.length, splinePoints[0].length, splineVelocities.length, splineVelocities[0].length));
