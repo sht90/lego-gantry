@@ -804,13 +804,28 @@ public class MountPoint2 extends Thread {
 			return null;
 		}
 
-		// TODO: I think this may be unnecessary, I might only need goal speeds, not goal positions?
+		/*
+		// OLD
 		// get the length of the line, given the time
 		private double getLineLength(float timeNow) {
 			// Assuming that the line is approximately straight, (which, we are making that assumption),
 			// the only hard part of this function is knowing where the end effector is.
 			endEffectorPosition = getEndEffectorGoalPosition(timeNow);
 			return distance(endEffectorPosition, mountPoint);
+		}
+		*/
+
+		// NEW
+		// get the length of the line, given the time
+		private double getLineLength(float timeNow) {
+			timeInterval * allWireLengths[mountPointIndex].length;
+			if (timeNow <= 0) {
+				return allWireLengths[mountPointIndex][0];
+			}
+			if (timeNow > timeInterval * allWireLengths[mountPointIndex].length) {
+				return allWireLengths[mountPointIndex][allWireLengths[mountPointIndex].length - 1];
+			}
+			return allWireLengths[mountPointIndex][(int)(timeNow / timeInterval)]
 		}
 
 		// get the motor speed, as an int number of degrees per second,
@@ -887,14 +902,13 @@ public class MountPoint2 extends Thread {
 				}
 			}
 			// and then we know that the time interval between each point in the spline is
-			// maxDistanceCovered (inches) * transmission? (deg / inch) / maxAllowedMotorSpeed (deg/s) = time (s)
-			timeInterval = maxDistanceCovered * gearRatio * spoolRadius / maxAllowedMotorSpeed;
+			// maxDistanceCovered (inches) * transmission? (deg / inch) / maxAllowedMotorSpeed (deg/s) / 1000 (s/ms) = time (ms)
+			timeInterval = maxDistanceCovered * gearRatio * spoolRadius / maxAllowedMotorSpeed / 1000.0F;
 		}
 
 		// will do one cycle of starting and stopping, then exit
 		public void run() {
 			myMotor.setSpeed(0);  // set the speed, in degrees per second
-			//myMotor.forward();  // set the motor in motion
 			baseTime = System.currentTimeMillis();	// initialize so that everything is relative to our start time
 			
 			// main loop:
@@ -905,27 +919,12 @@ public class MountPoint2 extends Thread {
 				// get the next length
 				currTime = System.currentTimeMillis();
 				currLength = getLineLength(currTime-baseTime);
-				nextLength = getLineLength((float) (currTime-baseTime + timeInterval));
+				nextLength = getLineLength((float)(currTime-baseTime + timeInterval));
 				
 				// get the difference between the current length and the next length
 				nextLength = nextLength - currLength;
-
-		//				// calculate expected tach 
-		//				prevTach = currTach;
-		//				currTach = myMotor.getTachoCount();
-		//				prevTime = currTime;
 				currSpeed = myMotor.getSpeed();
-
-				// calculate expected tach 
-		//				calcTach = motorForward ? calcTach + (currSpeed * ((currTime - prevTime)/1000.0F)) : calcTach - (currSpeed * ((currTime - prevTime)/1000.0F));
-						
-				// calculate the speed to make the difference
-				// motor speed is in degrees per second
-				// we need to calculate that based on how far the spool should move during the time interval
-				// incorporate gear ratio
-				// account for time (needs to convert to seconds)
-		//				nextSpeed = (int) (Math.toDegrees(nextLength / spoolRadius) * (1.0F/gearRatio) * (1000.0F/30.0F)) ;
-				nextSpeed = (int) (360.0F*((nextLength / (2.0F*Math.PI*spoolRadius)) * (1.0F/gearRatio) * (1000.0F/timeInterval))) ;
+				nextSpeed = (int)(360.0F * ((nextLength / (2.0F * Math.PI * spoolRadius)) * (1.0F / gearRatio) * (1000.0F / timeInterval))) ;
 
 				// status
 				LCD.drawString("c speed:        ", 0, 2);
@@ -948,12 +947,7 @@ public class MountPoint2 extends Thread {
 					motorForward = false;
 					myMotor.backward();
 				}
-				
-		//				// get info and print it out
-		//				RConsole.println("time: "+(currTime-baseTime) + "; curr speed: "+currSpeed+"; next speed: "+ nextSpeed +
-		//						 "; curr tach: "+currTach+"; calcTach: "+calcTach+
-		//						 "; time interval: "+(currTime - prevTime)+"; currLength: "+currLength+"; nextLength: "+nextLength);
-				
+
 				// wait for next loop
 				Delay.msDelay(loopInterval);								
 			}
